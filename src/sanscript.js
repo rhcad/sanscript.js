@@ -1,3 +1,5 @@
+// noinspection NonAsciiCharacters,JSNonASCIINames
+
 /**
  * Sanscript
  *
@@ -60,7 +62,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
             'G[yr]|(\\W|^)G'].join('')),
 
         // Match on Velthuis-only characters
-        RE_VELTHUIS_ONLY : /\.[mhnrlntds]|"n|~s/,
+        RE_VELTHUIS_ONLY : /\.[mhnrltds]|"n|~s/,
 
     };
 
@@ -86,7 +88,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
         // Brahmic schemes are all within a specific range of code points.
         for (let i = 0; i < text.length; i++) {
             const L = text[i];
-            const code = L.charCodeAt(L);
+            const code = L.charCodeAt(0);
             if (code >= DETECTION_PATTERNS.BRAHMIC_FIRST_CODE_POINT && code <= DETECTION_PATTERNS.BRAHMIC_LAST_CODE_POINT) {
                 for (let j = 0; j < BLOCKS.length; j++) {
                     const block = BLOCKS[j];
@@ -182,7 +184,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
         if (!("vowel_marks" in scheme)) {
             scheme.vowel_marks = {};
             for (const [key, value] of Object.entries(scheme.vowels)) {
-                if (key != "अ") {
+                if (key !== "अ") {
                     scheme.vowel_marks[devanagariVowelToMarks[key]] = value;
                 }
             }
@@ -241,7 +243,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
      * @param to       output scheme
      * @param options  scheme options
      */
-    const makeMap = function (from, to, _options) {
+    const makeMap = function (from, to, options) {
         const consonants = {};
         const fromScheme = Sanscript.schemes[from];
         const letters = {};
@@ -269,7 +271,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
                 if (T === undefined) {
                     continue;
                 }
-                if (T == "" && !["virama", "zwj", "skip"].includes(group)) {
+                if (T === "" && !["virama", "zwj", "skip"].includes(group)) {
                     T = F;
                 }
                 const alts = alternates[F] || [];
@@ -462,7 +464,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
      * @param options  transliteration options
      * @return         the finished string
      */
-    const transliterateBrahmic = function (data, map, _options) {
+    const transliterateBrahmic = function (data, map, options) {
         const buf = [];
         const consonants = map.consonants;
         const letters = map.letters;
@@ -580,11 +582,11 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
 
         // Easy way out for "{\m+}", "\", and ".h".
         if (from === "itrans") {
-            data = data.replace(/\{\\m\+\}/g, ".h.N");
+            data = data.replace(/{\\m\+}/g, ".h.N");
             data = data.replace(/\.h/g, "");
             data = data.replace(/\\([^'`_]|$)/g, "##$1##");
         }
-        if (from === "tamil_superscripted") {
+        else if (from === "tamil_superscripted") {
             const pattern = "([" + Object.values(schemes["tamil_superscripted"]["vowel_marks"]).join("") + schemes["tamil_superscripted"]["virama"]["्"] + "॒॑" + "]+)([²³⁴])";
             data = data.replace(new RegExp(pattern, "g"), "$2$1");
             console.error("transliteration from tamil_superscripted not fully implemented!");
@@ -603,7 +605,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
             }
         }
 
-        let result = "";
+        let result;
         if (map.fromRoman) {
             result = transliterateRoman(data, map, options);
         } else {
@@ -626,9 +628,9 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
             result = result.replace(new RegExp(pattern, "g"), "$2$1");
         }
 
-        if(typeof options.preferred_alternates[to] == "object") {
+        if (typeof options.preferred_alternates[to] === "object") {
             const keys = Object.keys(options.preferred_alternates[to]);
-            for (let i = 0; i< keys.length; i++)
+            for (let i = 0; i < keys.length; i++)
             {
                 result = result.split(keys[i]).join(options.preferred_alternates[to][keys[i]]);
             }
@@ -640,10 +642,11 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
     /**
      * A function to transliterate each word, for the benefit of script learners.
      *
-     * @param data
-     * @param from
-     * @param to
-     * @param options
+     * @param data     the string to transliterate
+     * @param from     the source script
+     * @param to       the destination script
+     * @param options  transliteration options
+     * @returns        the finished [word, result] array
      */
     Sanscript.transliterateWordwise = function (data, from, to, options) {
         options = options || {};
@@ -652,7 +655,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
             const result = Sanscript.t(word, from, to, options);
             return [word, result];
         });
-        return word_tuples;
+        return word_tuples.filter((t) => t[0].length);
     };
 
 
