@@ -9,6 +9,7 @@ module.exports = {
     "ignorePatterns" : [
         "/sanscript.es6.js",
         "/sanscript.js",
+        "*.tmp",
     ],
     "parserOptions" : {
         "ecmaVersion" : 2018,

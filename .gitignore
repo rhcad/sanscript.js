@@ -3,6 +3,7 @@
 
 node_modules
 .idea
+*.tmp
 
 /sanscript.js
 /sanscript.es6.js

@@ -530,16 +530,25 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
         return buf.join("");
     };
 
+    // Normalize iast avagraha (ऽ) characters
+    const RE_OTHER_AVAGRAHA = /[‘’]/g;
+    // Remove ligature characters for devanagari
+    const RE_REMOVE_LIGATURE = /[-]/g;
+    // Convert punctuations to '.' for devanagari
+    const RE_ALTERNATE_PUNC = /(^|[^#\\])[,?!:]/g;
+    // Keep dot ('1.2' or '||1.2||' form) in devanagari charter numbers
+    const RE_REMAIN_NUM_DOT = /\d\.\d/g;
+
     /**
      * Transliterate from one script to another.
      *
-     * @param data     the string to transliterate
-     * @param from     the source script
-     * @param to       the destination script
-     * @param options  transliteration options
-     * @return         the finished string
+     * @param {string} data       the string to transliterate
+     * @param {string} from       the source script, empty to auto-detect
+     * @param {string} to         the destination script
+     * @param {object} [options]  transliteration options
+     * @returns {string}          the finished string
      */
-    Sanscript.t = function (data, from, to, options) {
+    Sanscript.t = function (data, from, to, options=null) {
         if (!from) {
             from = Sanscript.detect(data).toLowerCase();
         }
@@ -590,6 +599,12 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
             const pattern = "([" + Object.values(schemes["tamil_superscripted"]["vowel_marks"]).join("") + schemes["tamil_superscripted"]["virama"]["्"] + "॒॑" + "]+)([²³⁴])";
             data = data.replace(new RegExp(pattern, "g"), "$2$1");
             console.error("transliteration from tamil_superscripted not fully implemented!");
+        }
+        else if (from === 'iast' && to === 'devanagari') {
+            data = data.replace(RE_OTHER_AVAGRAHA, "'")
+                .replace(RE_REMAIN_NUM_DOT, (s) => s.replace('.', '##.##'))
+                .replace(RE_REMOVE_LIGATURE, '')
+                .replace(RE_ALTERNATE_PUNC, (s) => (s.length > 1 ? s[0] : '') + '|');
         }
 
         const fromShortcuts = schemes[from]["shortcuts"];
@@ -642,22 +657,21 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
     /**
      * A function to transliterate each word, for the benefit of script learners.
      *
-     * @param data     the string to transliterate
-     * @param from     the source script
-     * @param to       the destination script
-     * @param options  transliteration options
-     * @returns        the finished [word, result] array
+     * @param {string} data       the string to transliterate
+     * @param {string} from       the source script, empty to auto-detect
+     * @param {string} to         the destination script
+     * @param {object} [options]  transliteration options
+     * @returns {Array[]}         the finished [word, result] array
      */
-    Sanscript.transliterateWordwise = function (data, from, to, options) {
+    Sanscript.transliterateWordwise = function (data, from, to, options=null) {
         options = options || {};
         const words = data.split(/\s+/);
-        const word_tuples = words.map(function (word) {
+        const word_tuples = words.filter((w) => w).map(function (word) {
             const result = Sanscript.t(word, from, to, options);
             return [word, result];
         });
         return word_tuples.filter((t) => t[0].length);
     };
-
 
 
     // Now that Sanscript is fully defined, we now safely export it for use elsewhere.

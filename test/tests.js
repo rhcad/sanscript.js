@@ -644,3 +644,22 @@ QUnit.test("Non-Sanskrit letters", function () {
 QUnit.test("Transliterate wordwise", function () {
     QUnit.assert.equal(Sanscript.transliterateWordwise("रामो दाशरथिर् यदि", "devanagari", "iso").toString(), [["रामो", "rāmō"], ["दाशरथिर्", "dāśarathir"], ["यदि", "yadi"]].toString(), "wordwise");
 });
+
+QUnit.module("IAST to Devanagari");
+
+QUnit.test("Transliterate punctuations for iastToDevanagari", function () {
+    const toDeva = (s) => Sanscript.transliterateWordwise(s, 'iast', 'devanagari').map((p) => p[1]).toString();
+
+    // Normalize avagraha (ऽ) characters
+    QUnit.assert.equal(toDeva("’nayor `nate'pi"), 'ऽनयोर्,ऽनतेऽपि');
+
+    // Remove ligature characters '-' for devanagari
+    QUnit.assert.equal(toDeva('bha-ktir-acyutā 1.13 acyutā||1||'),
+        ['भक्तिरच्युता', '१.१३', 'अच्युता॥१॥'].toString());
+
+    // Convert punctuations to '।' for devanagari
+    QUnit.assert.equal(toDeva('bha,ktir-a:cyutā.'), ['भ।क्तिर।च्युता।'].toString());
+
+    // Keep dot in charter numbers
+    QUnit.assert.equal(toDeva('kā-cana|1.13|'), ['काचन।१.१३।'].toString());
+});
