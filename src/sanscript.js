@@ -556,6 +556,13 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
     const RE_AKSARA_TYPE_PUNC = /^[,.?!:|।॥]/;
     const RE_AKSARA_CONS_HELP = [/[\t'-]/g, /^\t+/];
 
+    // If audio mark after number or punctuation, then keep them together
+    const RE_PUNC_AUDIO_TOGETHER = /(\|+\d[\d.-]*\|+|[|,?!:]+)▷/g;
+    // Match on audio mark and audio number
+    const RE_AUDIO_WITH_NUM = /▷\d+[a-z]?|▷\d*/g;
+    // Match on space between audio mark and ligature character
+    const RE_AUDIO_SPACE_DASH = /▷\s+-/g;
+
     /**
      * Detect the consonant sy[i] is at end or not
      * @param {string[]} sy     syllables
@@ -636,6 +643,40 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
             .replace(RE_CONSONANT1, '\t');
         const n = (RE_AKSARA_CONS_HELP[1].exec(con) || [''])[0].length; // count of consonants at head
         return `${(hasVowel ? 4 : 0) + (n > 1 ? 2 : n)}`;
+    };
+
+    /**
+     * Extract audio numbers from iast string
+     *
+     * @param audios {string[]} audio numbers for each '▷' marker in data
+     * @param text {string}     the input iast string with '▷' character
+     * @returns {string} iast string without audio numbers
+     */
+    Sanscript.pickAudioNumbers = function (audios, text) {
+        let idx = 0;
+        text.split(RE_AUDIO_WITH_NUM).forEach((seg) => {
+            idx += seg.length;
+            if (text[idx]) { // ▷
+                const re = /\d/.test(text[++idx]) && /[\da-z]/;
+                let num = re ? text[idx++] : '';
+                while (re && re.test(text[idx] || '')) {
+                    num += text[idx++];
+                }
+                audios.push(num);
+            }
+        });
+        return text.replace(RE_AUDIO_WITH_NUM, '▷');
+    };
+
+    /**
+     * Refill audio numbers
+     *
+     * @param audios {string[]} last result of pickAudioNumbers
+     * @param index {number}    start index of audios
+     * @param text {string} string with '▷' marker
+     */
+    Sanscript.refillAudioNumbers = function (audios, index, text) {
+        return text.replace(/▷/g, (s) => s + (audios[index++] || ''));
     };
 
     /**
@@ -753,6 +794,41 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
         return result;
     };
 
+    // Combine adjacent consonants into consonant cluster
+    // Example: ['pā','n','▷','-na'] → ['pā','▷','-nna']
+    const combineAdjacentConsonants = function (syllables, sy2) {
+        for (let i = sy2.length - 2, i0 = i; i >= 0; --i, --i0) {
+            const leftIdx = sy2[i] === '▷' ? i - 1 : i;
+            const left = (sy2[leftIdx] || '').replace(/^-|-$/g, '');
+            const rtIdx = sy2[i + 1] === '▷' ? i + 2 : i + 1;
+            const right = sy2[rtIdx] || '';
+            const rtConIdx = right.search(RE_CONSONANT2);
+            const rtBeginCon = rtConIdx === 0 || rtConIdx === 1 && right[0] === '-';
+            const leftI0 = syllables[i0] === '▷' ? i0 - 1 : i0;
+
+            // If left syllable has only consonant (one character)
+            if (left.length === 1 && RE_CONSONANT1.test(left)) {
+                // And right syllable starts with consonant, then merge left into right syllable
+                if (rtBeginCon && syllables[i0] === sy2[i]) {
+                    sy2[rtIdx] = (rtConIdx > 0 ? '-' : '') + left + right.substring(rtConIdx);
+                    sy2.splice(leftIdx, 1); // remove left
+                    if (syllables[leftI0] === left && RE_END_VOWEL.test(syllables[leftI0 - 1] || '')) {
+                        syllables[leftI0 - 1] += left;
+                        syllables.splice(leftI0, 1);
+                    }
+                    i--; // removed at leftIdx, i >= leftIdx
+                    i0--; // skip the syllable which sames as left
+                    continue;
+                }
+            }
+
+            if (sy2[i] === '▷') { // left==sy2[i-1], [i-1] processed
+                i--;
+                i0--;
+            }
+        }
+    };
+
     /**
      * A function to transliterate each word, for the benefit of script learners.
      *
@@ -765,6 +841,10 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
     Sanscript.transliterateWordwise = function (data, from, to, options=null) {
         const hasAudio = data.indexOf('▷') >= 0;
         options = options || {};
+        if (hasAudio) {
+            data = data.replace(RE_PUNC_AUDIO_TOGETHER, (s) => ' ' + s)
+                .replace(RE_AUDIO_SPACE_DASH, (s) => s.replace(/\s+/, ''));
+        }
         const words = data.split(/\s+/);
         const word_tuples = words.filter((w) => w).map(function (word) {
             if (options.split_aksara || hasAudio) {
@@ -778,7 +858,10 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
                     }
                 }
 
-                const result = syllables.map((aksara) => Sanscript.t(aksara, from, to, options));
+                const sy2 = syllables.slice(); // syllables for conversion target
+                combineAdjacentConsonants(syllables, sy2);
+
+                const result = sy2.map((aksara) => Sanscript.t(aksara, from, to, options));
                 // Separate each aksara with tab
                 return [syllables.join(options.split_aksara ? '\t' : ''),
                     result.join(options.split_aksara ? '\t' : '')];

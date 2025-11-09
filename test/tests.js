@@ -671,13 +671,58 @@ QUnit.test("Split into aksaras", function () {
         [['Pu_nā_tu_bha_-kti_r-a_cyu_tā', 'पु_ना_तु_भ_क्ति_र_च्यु_ता'],
             ['kā_,_ca_na_|1.13|', 'का_।_च_न_।१.१३।']].toString().replace(/_/g, '\t'));
     QUnit.assert.equal(toDeva('kā-ñca').toString(), [['kā\t-ñca', 'का\tञ्च']].toString());
+
+    // Anusvāra, visarga or end consonant share the same syllable as the preceding vowel
     QUnit.assert.equal(toDeva('kāmkāṃkām').toString(), [['kā\tmkāṃ\tkām', 'का\tम्कां\tकाम्']].toString());
     QUnit.assert.equal(toDeva('kās|kām').toString(), [['kās\t|\tkām', 'कास्\t।\tकाम्']].toString());
 
+    // getAksaraType
     QUnit.assert.equal(Sanscript.getAksaraType('ā\tkha\tkta\tktra\tx\tkh\tkt\tktr\t.'), '45660122p');
     QUnit.assert.equal(Sanscript.getAksaraType(toDeva('kā,cana|1.13|')[0][0]), '5p55n');
     QUnit.assert.equal(Sanscript.getAksaraType(toDeva('kā,cana|1.13|')[0][1]), '0p00n');
 
     QUnit.assert.equal(toDeva('ḍhauṇaṃ-taḥth').toString(), 'ḍhau\tṇaṃ\t-taḥ\tth,ढौ\tणं\tतः\tथ्');
     QUnit.assert.equal(toDeva('ṇaṃḍhauṇaṃaḥth').toString(), 'ṇaṃ\tḍhau\tṇaṃ\taḥ\tth,णं\tढौ\tणं\tअः\tथ्');
+
+    // Combine adjacent consonants into consonant cluster
+    QUnit.assert.equal(toDeva('pān▷-na').toString(), [['pān\t▷\t-na', 'पा\t▷\tन्न']].toString());
+    QUnit.assert.equal(toDeva('pān-na').toString(), [['pā\tn-na', 'पा\tन्न']].toString());
+});
+
+QUnit.test("Transliterate audio marks", function () {
+    const toDeva = (s, aksara = false) => Sanscript.transliterateWordwise(s, 'iast', 'devanagari', {split_aksara : aksara});
+    const iast0 = 'Aśanamācara kā▷-canabhājane▷|▷';
+
+    QUnit.assert.equal(toDeva(iast0).toString(),
+        [['Aśanamācara', 'अशनमाचर'], ['kā▷-canabhājane▷', 'का▷चनभाजने▷'], ['|▷', '।▷']].toString());
+    QUnit.assert.equal(toDeva(iast0, true).toString(),
+        [['A_śa_na_mā_ca_ra', 'अ_श_न_मा_च_र'],
+            ['kā_▷_-ca_na_bhā_ja_ne_▷', 'का_▷_च_न_भा_ज_ने_▷'],
+            ['|_▷', '।_▷']].toString().replace(/_/g, '\t'));
+
+    const deva0 = toDeva(iast0, true).map((pair) => pair[1]).join('.');
+    QUnit.assert.equal(deva0, ['अ\tश\tन\tमा\tच\tर', 'का\t▷\tच\tन\tभा\tज\tने\t▷', '।\t▷'].join('.'));
+    QUnit.assert.equal(toDeva('ne▷ |▷', true).toString(), toDeva('ne▷|▷', true).toString());
+
+    const audios = [];
+    const iast1 = 'Aśanamācara kā▷2a-canabhājane▷3|▷500';
+
+    QUnit.assert.equal(iast0, Sanscript.pickAudioNumbers(audios, iast1));
+    QUnit.assert.equal(audios.toString(), ['2a', '3', '500'].toString());
+
+    QUnit.assert.equal(Sanscript.refillAudioNumbers(audios, 0, iast0), iast1);
+    QUnit.assert.equal(Sanscript.refillAudioNumbers(audios, 0, deva0),
+        ['अ\tश\tन\tमा\tच\tर', 'का\t▷2a\tच\tन\tभा\tज\tने\t▷3', '।\t▷500'].join('.'));
+    QUnit.assert.equal(Sanscript.refillAudioNumbers(audios, 0, 'का\t▷'), 'का\t▷2a');
+    QUnit.assert.equal(Sanscript.refillAudioNumbers(audios, 2, '▷।'), '▷500।');
+    QUnit.assert.equal(Sanscript.refillAudioNumbers(audios, 1, 'च\tन\tभा\tज\tने\t▷'), 'च\tन\tभा\tज\tने\t▷3');
+
+    QUnit.assert.equal(toDeva('kā▷-ñca'), [['kā▷-ñca'], 'का▷ञ्च'].toString());
+    QUnit.assert.equal(toDeva('kā▷-ñca', true), [['kā\t▷\t-ñca'], 'का\t▷\tञ्च'].toString());
+    QUnit.assert.equal(Sanscript.getAksaraType(toDeva("kā▷-ñcabhnalla", true)[0][0]), '5u665');
+    QUnit.assert.equal(Sanscript.getAksaraType(toDeva("te'pi", true)[0][0]), '55');
+
+    QUnit.assert.equal(toDeva('kā▷ -ñca').toString(), toDeva('kā▷-ñca').toString());
+    QUnit.assert.equal(toDeva('kāñ▷ -ca', true).map((p) => p[1]).toString(),
+        toDeva('kā▷ñca', true).map((p) => p[1]).toString());
 });

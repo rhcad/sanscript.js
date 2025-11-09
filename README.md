@@ -76,6 +76,8 @@ You can tweak the transliteration function by passing an `options` object:
 ```js
 { itrans : { "A" : "aa", "I" : "ii", "U" : "uu", "j~n" : "GY" } }
 ```
+* `split_aksara` - If true, split an iast word into aksara texts. Defaults to `false`.
+
 ## Contributing
 
 1. Check out repo from github.
