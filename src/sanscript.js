@@ -18,6 +18,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
         "skip_sgml"            : false,
         "syncope"              : false,
         "preferred_alternates" : {},
+        "split_aksara"         : false,
     };
 
     const DETECTION_PATTERNS = {
@@ -539,6 +540,104 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
     // Keep dot ('1.2' or '||1.2||' form) in devanagari charter numbers
     const RE_REMAIN_NUM_DOT = /\d\.\d/g;
 
+    // Match on IAST vowel character for aksara(syllable)
+    // Anusvāra and visarga share the same syllable as the preceding vowel
+    const RE_AKSARA_VOWEL = /[aiuāīūṛṝḷḹáíúeēèoōò]+[ṃḥ]?/i;
+
+    // Match on the aksara which ends with vowel character
+    const RE_END_VOWEL = /[aiuāīūṛṝḷḹáíúeēèoōò]$/i;
+    // Match characters that belong to the same syllable or number
+    const RE_AKSARA_PUNC_NUM = /[▷,?!:]|\|+\d[|\d.-]*|\|+|\d[\d.-]*/g;
+    // Match on IAST characters in a consonant
+    const RE_CONSONANT2 = /kṣ|jñ|ll|[kgcjṭḍtdpb]h?|[ṅñṇnmyrlvśṣsh]/gi;
+    const RE_CONSONANT1 = /[kgcjṭḍtdpbṅñṇnmyrlvśṣsh]/i;
+    // Match in getAksaraType
+    const RE_AKSARA_TYPE_NUM = /[\d०-९]/;
+    const RE_AKSARA_TYPE_PUNC = /^[,.?!:|।॥]/;
+    const RE_AKSARA_CONS_HELP = [/[\t'-]/g, /^\t+/];
+
+    /**
+     * Detect the consonant sy[i] is at end or not
+     * @param {string[]} sy     syllables
+     * @param {number} i        index of the consonant char
+     * @returns {boolean}
+     */
+    const isConsonantAtEnd = function (sy, i) {
+        return i === sy.length - 1 ||
+            RE_AKSARA_TYPE_NUM.test(sy[i + 1]) ||
+            RE_AKSARA_TYPE_PUNC.test(sy[i + 1]) ||
+            sy[i + 1] === '▷' && i + 2 < sy.length && isConsonantAtEnd(sy, i + 1);
+    };
+
+    /*
+     * Split an iast word into aksara texts
+     *
+     * @param data {string}     iast word string
+     * @return {string[]}       each text is aksara, punctuation or number
+     */
+    Sanscript.splitAksara = function (data) {
+        const items = [];
+        const split = (str) => {
+            while (str) {
+                const vowelIndex = str.search(RE_AKSARA_VOWEL);
+                if (vowelIndex < 0) {
+                    items.push(str); // consonant
+                    break;
+                }
+                str.replace(RE_AKSARA_VOWEL, function (vowel) {
+                    const syllable = str.substring(0, vowelIndex + vowel.length);
+                    items.push(syllable); // has vowel
+                    str = str.substring(vowelIndex + vowel.length);
+                    return ''; // not used
+                });
+            }
+        };
+        let idx = 0;
+
+        data.split(RE_AKSARA_PUNC_NUM).forEach((sentence) => {
+            split(sentence);
+            idx += sentence.length;
+
+            let punc = data[idx];
+            if (punc) { // Add punctuation or number
+                if (/[|\d]/.test(data[idx++])) { // eg:  ||3||  1.2
+                    const re = punc === '|' ? /[|\d.-]/ : /[\d.-]/;
+                    while (re.test(data[idx])) {
+                        punc += data[idx++];
+                    }
+                }
+                items.push(punc);
+            }
+        });
+
+        return items;
+    };
+
+    /**
+     * Get item type of splitAksara result
+     *
+     * @param {string} text   result item from splitAksara, such as 'am', 'Pu\tnā'
+     * @returns {string}      'p': punctuation, 'n': number, 'u': audio marker
+     *      aksara:  '0': no consonant, '1': consonant, '2': consonant cluster
+     *               '4': only vowel, '5': consonant + vowel, '6': consonants + vowel
+     */
+    Sanscript.getAksaraType = function (text) {
+        if (!text) return ' ';
+        if (text.indexOf('\t') >= 0) { // an aksara
+            return text.split('\t').map(Sanscript.getAksaraType).join('');
+        }
+        if (text[0] === '▷') return 'u';
+        if (RE_AKSARA_TYPE_NUM.test(text)) return 'n';
+        if (RE_AKSARA_TYPE_PUNC.test(text)) return 'p';
+
+        const hasVowel = RE_AKSARA_VOWEL.test(text);
+        const con = text.replace(RE_AKSARA_CONS_HELP[0], '')
+            .replace(RE_CONSONANT2, '\t')
+            .replace(RE_CONSONANT1, '\t');
+        const n = (RE_AKSARA_CONS_HELP[1].exec(con) || [''])[0].length; // count of consonants at head
+        return `${(hasVowel ? 4 : 0) + (n > 1 ? 2 : n)}`;
+    };
+
     /**
      * Transliterate from one script to another.
      *
@@ -664,9 +763,26 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
      * @returns {Array[]}         the finished [word, result] array
      */
     Sanscript.transliterateWordwise = function (data, from, to, options=null) {
+        const hasAudio = data.indexOf('▷') >= 0;
         options = options || {};
         const words = data.split(/\s+/);
         const word_tuples = words.filter((w) => w).map(function (word) {
+            if (options.split_aksara || hasAudio) {
+                const syllables = Sanscript.splitAksara(word);
+                for (let i = syllables.length - 1; i > 0; --i) {
+                    // The end consonant share the same syllable as the preceding vowel
+                    if (syllables[i].length === 1 && RE_CONSONANT1.test(syllables[i]) &&
+                        RE_END_VOWEL.test(syllables[i - 1]) && isConsonantAtEnd(syllables, i)) {
+                        syllables[i - 1] += syllables[i];
+                        syllables.splice(i, 1);
+                    }
+                }
+
+                const result = syllables.map((aksara) => Sanscript.t(aksara, from, to, options));
+                // Separate each aksara with tab
+                return [syllables.join(options.split_aksara ? '\t' : ''),
+                    result.join(options.split_aksara ? '\t' : '')];
+            }
             const result = Sanscript.t(word, from, to, options);
             return [word, result];
         });

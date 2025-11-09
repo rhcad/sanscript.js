@@ -663,3 +663,21 @@ QUnit.test("Transliterate punctuations for iastToDevanagari", function () {
     // Keep dot in charter numbers
     QUnit.assert.equal(toDeva('kā-cana|1.13|'), ['काचन।१.१३।'].toString());
 });
+
+QUnit.test("Split into aksaras", function () {
+    const toDeva = (s) => Sanscript.transliterateWordwise(s, 'iast', 'devanagari', {split_aksara : true});
+
+    QUnit.assert.equal(toDeva('Punātubha-ktir-acyutā kā,cana|1.13|').toString(),
+        [['Pu_nā_tu_bha_-kti_r-a_cyu_tā', 'पु_ना_तु_भ_क्ति_र_च्यु_ता'],
+            ['kā_,_ca_na_|1.13|', 'का_।_च_न_।१.१३।']].toString().replace(/_/g, '\t'));
+    QUnit.assert.equal(toDeva('kā-ñca').toString(), [['kā\t-ñca', 'का\tञ्च']].toString());
+    QUnit.assert.equal(toDeva('kāmkāṃkām').toString(), [['kā\tmkāṃ\tkām', 'का\tम्कां\tकाम्']].toString());
+    QUnit.assert.equal(toDeva('kās|kām').toString(), [['kās\t|\tkām', 'कास्\t।\tकाम्']].toString());
+
+    QUnit.assert.equal(Sanscript.getAksaraType('ā\tkha\tkta\tktra\tx\tkh\tkt\tktr\t.'), '45660122p');
+    QUnit.assert.equal(Sanscript.getAksaraType(toDeva('kā,cana|1.13|')[0][0]), '5p55n');
+    QUnit.assert.equal(Sanscript.getAksaraType(toDeva('kā,cana|1.13|')[0][1]), '0p00n');
+
+    QUnit.assert.equal(toDeva('ḍhauṇaṃ-taḥth').toString(), 'ḍhau\tṇaṃ\t-taḥ\tth,ढौ\tणं\tतः\tथ्');
+    QUnit.assert.equal(toDeva('ṇaṃḍhauṇaṃaḥth').toString(), 'ṇaṃ\tḍhau\tṇaṃ\taḥ\tth,णं\tढौ\tणं\tअः\tथ्');
+});
