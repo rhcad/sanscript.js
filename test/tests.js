@@ -726,3 +726,18 @@ QUnit.test("Transliterate audio marks", function () {
     QUnit.assert.equal(toDeva('kāñ▷ -ca', true).map((p) => p[1]).toString(),
         toDeva('kā▷ñca', true).map((p) => p[1]).toString());
 });
+
+QUnit.test("Transliterate with move_consonant feature", function () {
+    const toDeva = (s, split, move = true) => Sanscript.transliterateWordwise(
+        s, 'iast', 'devanagari', {split_aksara : split, move_consonant : move}).toString();
+
+    QUnit.assert.equal(toDeva('kā▷-ñca', false), [['kāñ▷-ca', 'का▷ञ्च']].toString());
+    QUnit.assert.equal(toDeva('kā▷-ñca', true), [['kāñ\t▷\t-ca', 'का\t▷\tञ्च']].toString());
+    QUnit.assert.equal(toDeva('kā▷-ñca', true, false), [['kā\t▷\t-ñca', 'का\t▷\tञ्च']].toString());
+
+    QUnit.assert.equal(toDeva('kāñ▷-ca', false), [['kāñ▷-ca', 'का▷ञ्च']].toString());
+    QUnit.assert.equal(toDeva('kāñ▷-ca', true), [['kāñ\t▷\t-ca', 'का\t▷\tञ्च']].toString());
+    QUnit.assert.equal(toDeva('kāñ▷-ca', true, false), [['kāñ\t▷\t-ca', 'का\t▷\tञ्च']].toString());
+
+    QUnit.assert.equal(toDeva('pṛtha▷-kśūnyatā', true), [['pṛ\ttha\t▷\t-kśūn\tya\ttā', 'पृ\tथ\t▷\tक्शू\tन्य\tता']].toString());
+});

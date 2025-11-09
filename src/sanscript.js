@@ -19,6 +19,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
         "syncope"              : false,
         "preferred_alternates" : {},
         "split_aksara"         : false,
+        "move_consonant"       : false,
     };
 
     const DETECTION_PATTERNS = {
@@ -796,7 +797,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
 
     // Combine adjacent consonants into consonant cluster
     // Example: ['pā','n','▷','-na'] → ['pā','▷','-nna']
-    const combineAdjacentConsonants = function (syllables, sy2) {
+    const combineAdjacentConsonants = function (syllables, sy2, options) {
         for (let i = sy2.length - 2, i0 = i; i >= 0; --i, --i0) {
             const leftIdx = sy2[i] === '▷' ? i - 1 : i;
             const left = (sy2[leftIdx] || '').replace(/^-|-$/g, '');
@@ -816,9 +817,26 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
                         syllables[leftI0 - 1] += left;
                         syllables.splice(leftI0, 1);
                     }
-                    i--; // removed at leftIdx, i >= leftIdx
-                    i0--; // skip the syllable which sames as left
+                    i0 -= leftIdx === i ? 1 : 2; // skip the syllable which sames as left
+                    i -= leftIdx === i ? 1 : 2; // removed at leftIdx, i >= leftIdx
                     continue;
+                }
+            }
+            // If left syllable ends with vowel
+            else if (options.move_consonant && RE_END_VOWEL.test(left) && rtBeginCon) {
+                // If right syllable begins with consonant cluster
+                const rType = Sanscript.getAksaraType(right.substring(rtConIdx));
+                const rtI0 = syllables[i0 + 1] === '▷' ? i0 + 2 : i0 + 1;
+                if (rType === '2' || rType === '6') {
+                    const leadCon = RE_CONSONANT2.exec(right.substring(rtConIdx))[0];
+                    if (syllables[rtI0].indexOf(leadCon) === rtConIdx &&
+                        leadCon.length === 1 && /[ṅñṇnmrśṣsh]/.test(leadCon)) {
+                        syllables[rtI0] = syllables[rtI0].replace(leadCon, '');
+                        syllables[leftI0] += leadCon;
+                        if (!syllables[rtI0]) {
+                            syllables.splice(rtI0, 1);
+                        }
+                    }
                 }
             }
 
@@ -859,7 +877,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
                 }
 
                 const sy2 = syllables.slice(); // syllables for conversion target
-                combineAdjacentConsonants(syllables, sy2);
+                combineAdjacentConsonants(syllables, sy2, options);
 
                 const result = sy2.map((aksara) => Sanscript.t(aksara, from, to, options));
                 // Separate each aksara with tab

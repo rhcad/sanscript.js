@@ -77,6 +77,7 @@ You can tweak the transliteration function by passing an `options` object:
 { itrans : { "A" : "aa", "I" : "ii", "U" : "uu", "j~n" : "GY" } }
 ```
 * `split_aksara` - If true, split an iast word into aksara texts. Defaults to `false`.
+* `move_consonant` - If true, move the first consonant of syllable with consonant cluster to the previous syllable. Defaults to `false`.
 
 ## Contributing
 
