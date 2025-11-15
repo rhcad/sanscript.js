@@ -827,10 +827,11 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
                 // If right syllable begins with consonant cluster
                 const rType = Sanscript.getAksaraType(right.substring(rtConIdx));
                 const rtI0 = syllables[i0 + 1] === '▷' ? i0 + 2 : i0 + 1;
-                if (rType === '2' || rType === '6') {
+                if (rType === '2' || rType === '6') { // consonant cluster
                     const leadCon = RE_CONSONANT2.exec(right.substring(rtConIdx))[0];
-                    if (syllables[rtI0].indexOf(leadCon) === rtConIdx &&
-                        leadCon.length === 1 && /[ṅñṇnmrśṣsh]/.test(leadCon)) {
+                    if (syllables[rtI0].indexOf(leadCon) === rtConIdx
+                        && leadCon.length === 1 && /[ṅñṇnmrṣsh]/.test(leadCon)
+                        && !/[ñnm][y]|[ṣs][v]/.test(right.substring(rtConIdx))) {
                         syllables[rtI0] = syllables[rtI0].replace(leadCon, '');
                         syllables[leftI0] += leadCon;
                         if (!syllables[rtI0]) {

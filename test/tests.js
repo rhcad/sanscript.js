@@ -739,5 +739,7 @@ QUnit.test("Transliterate with move_consonant feature", function () {
     QUnit.assert.equal(toDeva('kāñ▷-ca', true), [['kāñ\t▷\t-ca', 'का\t▷\tञ्च']].toString());
     QUnit.assert.equal(toDeva('kāñ▷-ca', true, false), [['kāñ\t▷\t-ca', 'का\t▷\tञ्च']].toString());
 
-    QUnit.assert.equal(toDeva('pṛtha▷-kśūnyatā', true), [['pṛ\ttha\t▷\t-kśūn\tya\ttā', 'पृ\tथ\t▷\tक्शू\tन्य\tता']].toString());
+    // kśūn-ya, kśū-nya, sva
+    QUnit.assert.equal(toDeva('pṛtha▷-kśūnyatā', true), [['pṛ\ttha\t▷\t-kśū\tnya\ttā', 'पृ\tथ\t▷\tक्शू\tन्य\tता']].toString());
+    QUnit.assert.equal(toDeva('kilānyā▷-svapi', true), [['ki\tlā\tnyā\t▷\t-sva\tpi', 'कि\tला\tन्या\t▷\tस्व\tपि']].toString());
 });
