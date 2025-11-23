@@ -548,14 +548,14 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
     // Match on the aksara which ends with vowel character
     const RE_END_VOWEL = /[aiuāīūṛṝḷḹáíúeēèoōò]$/i;
     // Match characters that belong to the same syllable or number
-    const RE_AKSARA_PUNC_NUM = /[▷,?!:]|\|+\d[|\d.-]*|\|+|\d[\d.-]*/g;
+    const RE_AKSARA_PUNC_NUM = /\s+|[▷,?!:]|\|+\d[|\d.-]*|\|+|\d[\d.-]*/g;
     // Match on IAST characters in a consonant
     const RE_CONSONANT2 = /kṣ|jñ|ll|[kgcjṭḍtdpb]h?|[ṅñṇnmyrlvśṣsh]/gi;
     const RE_CONSONANT1 = /[kgcjṭḍtdpbṅñṇnmyrlvśṣsh]/i;
     // Match in getAksaraType
     const RE_AKSARA_TYPE_NUM = /[\d०-९]/;
     const RE_AKSARA_TYPE_PUNC = /^[,.?!:|।॥]/;
-    const RE_AKSARA_CONS_HELP = [/[\t'-]/g, /^\t+/];
+    const RE_AKSARA_CONS_HELP = [/[\t'-]/g, /^\t+/, /kṣ|jñ|ll/];
 
     // If audio mark after number or punctuation, then keep them together
     const RE_PUNC_AUDIO_TOGETHER = /(\|+\d[\d.-]*\|+|[|,?!:]+)▷/g;
@@ -608,13 +608,15 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
 
             let punc = data[idx];
             if (punc) { // Add punctuation or number
-                if (/[|\d]/.test(data[idx++])) { // eg:  ||3||  1.2
-                    const re = punc === '|' ? /[|\d.-]/ : /[\d.-]/;
+                if (/[|\d\s]/.test(data[idx++])) { // eg:  ||3||  1.2
+                    const re = punc === '|' ? /[|\d.-]/ : RE_AKSARA_TYPE_NUM.test(punc) ? /[\d.-]/ : /\s/;
                     while (re.test(data[idx])) {
                         punc += data[idx++];
                     }
                 }
-                items.push(punc);
+                if (punc.trim()) {
+                    items.push(punc);
+                }
             }
         });
 
@@ -640,6 +642,7 @@ function exportSanscriptSingleton (global, schemes, devanagariVowelToMarks) {
 
         const hasVowel = RE_AKSARA_VOWEL.test(text);
         const con = text.replace(RE_AKSARA_CONS_HELP[0], '')
+            .replace(RE_AKSARA_CONS_HELP[2], '\t')
             .replace(RE_CONSONANT2, '\t')
             .replace(RE_CONSONANT1, '\t');
         const n = (RE_AKSARA_CONS_HELP[1].exec(con) || [''])[0].length; // count of consonants at head
